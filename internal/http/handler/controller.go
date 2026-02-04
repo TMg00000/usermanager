@@ -6,6 +6,8 @@ import (
 	"usermanager/internal/domain/request"
 	"usermanager/internal/services"
 	"usermanager/internal/validation"
+
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type UsersManagerServices struct {
@@ -21,21 +23,23 @@ func (s *UsersManagerServices) RegisterNewUser(w http.ResponseWriter, r *http.Re
 	}
 	defer r.Body.Close()
 
-	err := validation.ValidateNewUser(user)
-	if err != nil {
+	if err := validation.ValidateData(user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	errServ := s.Services.Create(user)
-	if errServ != nil {
-		http.Error(w, errServ.Error(), http.StatusInternalServerError)
+	if err := s.Services.Create(user); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			http.Error(w, "Email already exists", http.StatusConflict)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode("User created successfully")
+	json.NewEncoder(w).Encode(user)
 
 }
 
@@ -48,9 +52,8 @@ func (s *UsersManagerServices) LoginUser(w http.ResponseWriter, r *http.Request)
 	}
 	defer r.Body.Close()
 
-	errServ := s.Services.Get(user.Email, user.Password)
-	if errServ != nil {
-		http.Error(w, errServ.Error(), http.StatusUnauthorized)
+	if err := s.Services.Login(user.Email, user.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
@@ -61,4 +64,16 @@ func (s *UsersManagerServices) LoginUser(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resonse)
+}
+
+func (s *UsersManagerServices) AllUsers(w http.ResponseWriter, r *http.Request) {
+	response, err := s.Services.GetAllUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }

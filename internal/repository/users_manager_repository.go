@@ -8,10 +8,23 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type UserManagerRepository struct {
 	collection *mongo.Collection
+}
+
+func UniqueKeyEmail(c *mongo.Collection) error {
+	index := mongo.IndexModel{
+		Keys:    bson.M{"email": 1},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err := c.Indexes().CreateOne(context.Background(), index)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewUserManagerRepository(col *mongo.Collection) *UserManagerRepository {
@@ -43,7 +56,7 @@ func (c *UserManagerRepository) Create(u request.Users) error {
 	return nil
 }
 
-func (c *UserManagerRepository) Get(email, password string) error {
+func (c *UserManagerRepository) Login(email, password string) error {
 	var u request.Users
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -55,4 +68,22 @@ func (c *UserManagerRepository) Get(email, password string) error {
 	}
 
 	return utils.ComparePassword(u.Password, password)
+}
+
+func (c *UserManagerRepository) GetAllUsers() ([]request.Users, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cursor, err := c.collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var users []request.Users
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }

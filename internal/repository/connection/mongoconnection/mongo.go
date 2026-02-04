@@ -3,7 +3,6 @@ package mongoconnection
 import (
 	"context"
 	"fmt"
-	"log"
 	"usermanager/internal/configs"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -28,12 +27,4 @@ func NewMongoConnection(ctx context.Context) (*mongo.Client, error) {
 	}
 
 	return client, nil
-}
-
-func GetCollection(client *mongo.Client, dbName, colName string) *mongo.Collection {
-	if dbName == "" || colName == "" {
-		log.Fatal("MongoDB database or collection name is empty")
-	}
-
-	return client.Database(dbName).Collection(colName)
 }

@@ -25,16 +25,20 @@ func main() {
 		}
 	}()
 
+	repository.UniqueKeyEmail(col)
+
 	UserRepo := repository.NewUserManagerRepository(col)
 	controller := handler.UsersManagerServices{
 		Services: UserRepo,
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/api/createuser", controller.RegisterNewUser).Methods("POST")
-	r.HandleFunc("/api/login", controller.LoginUser).Methods("GET")
+	r.HandleFunc("/api/user/signup", controller.RegisterNewUser).Methods("POST")
+	r.HandleFunc("/api/user/login", controller.LoginUser).Methods("POST")
+	r.HandleFunc("/api/user/allusers", controller.AllUsers).Methods("GET")
 
 	log.Println("Server is running on port 9437")
+	log.Println("Server is running in address http://localhost:9437")
 	returnFatalError(http.ListenAndServe(":9437", r))
 }
 
@@ -43,9 +47,7 @@ func StartDataBase() *mongo.Collection {
 	defer cancel()
 
 	client, err := mongoconnection.NewMongoConnection(ctx)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	returnFatalError(err)
 
 	return client.Database(configs.Env.MongoDB).Collection(configs.Env.MongoCol)
 }
